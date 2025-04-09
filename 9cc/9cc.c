@@ -55,7 +55,8 @@ bool consume(char op) {
 // 次のトークンが期待する記号でなければエラー
 void expect(char op) {
   if (current_token->kind != TK_RESERVED || current_token->str[0] != op)
-    error("'%c'ではありません", op);
+    error("期待された記号: '%c'ですが、実際には '%s'でした", op,
+          current_token->str);
   current_token = current_token->next;
 }
 
