@@ -95,7 +95,7 @@ Token *tokenize(char *input_ptr) {
       continue;
     }
 
-    error("トークナイズできません");
+    error("トークナイズできません: '%c'", *input_ptr);
   }
 
   new_token(TK_EOF, tail, input_ptr);
