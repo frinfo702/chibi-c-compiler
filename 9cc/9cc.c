@@ -52,7 +52,7 @@ void error_at(char *location, char *fmt, ...) {
 
   int position = location - user_input;
   fprintf(stderr, "%s\n", user_input);
-  fprintf(stderr, "%*s\n", position, ""); // print position spaces.
+  fprintf(stderr, "%*s", position, ""); // print position spaces.
   fprintf(stderr, "^ ");
   vfprintf(stderr, fmt, ap);
   fprintf(stderr, "\n");
@@ -111,7 +111,7 @@ Token *tokenize() {
       continue;
     }
 
-    error_at(input_ptr, "expected a number");
+    error_at(input_ptr, "unexpected character");
   }
 
   new_token(TK_EOF, tail, input_ptr);
