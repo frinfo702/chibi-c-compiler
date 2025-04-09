@@ -13,6 +13,7 @@ typedef enum {
 } TokenKind;
 
 typedef struct Token Token;
+char *user_input; // Input program
 
 // トークンを表す構造体
 struct Token {
@@ -44,6 +45,20 @@ void error(char *fmt, ...) {
   exit(1);
 }
 
+// Reports an error location and exit.
+void error_at(char *location, char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+
+  int position = location - user_input;
+  fprintf(stderr, "%s\n", user_input);
+  fprintf(stderr, "%*s\n", position, ""); // print position spaces.
+  fprintf(stderr, "^ ");
+  vfprintf(stderr, fmt, ap);
+  fprintf(stderr, "\n");
+  exit(1);
+}
+
 // 次のトークンが期待する記号ならトークンを進めてtrueを返す
 bool consume(char op) {
   if (current_token->kind != TK_RESERVED || current_token->str[0] != op)
@@ -55,15 +70,15 @@ bool consume(char op) {
 // 次のトークンが期待する記号でなければエラー
 void expect(char op) {
   if (current_token->kind != TK_RESERVED || current_token->str[0] != op)
-    error("期待された記号: '%c'ですが、実際には '%s'でした", op,
-          current_token->str);
+    error_at(current_token->str, "expected: '%c'but got: '%s'", op,
+             current_token->str);
   current_token = current_token->next;
 }
 
 // 次のトークンが数値でなければエラー
 int expect_number() {
   if (current_token->kind != TK_NUM)
-    error("数ではありません");
+    error_at(current_token->str, "expected a number");
   int val = current_token->val;
   current_token = current_token->next;
   return val;
@@ -73,7 +88,8 @@ int expect_number() {
 bool at_eof() { return current_token->kind == TK_EOF; }
 
 // 入力文字列をトークンに分割
-Token *tokenize(char *input_ptr) {
+Token *tokenize() {
+  char *input_ptr = user_input;
   Token head;
   head.next = NULL;
   Token *tail = &head;
@@ -95,7 +111,7 @@ Token *tokenize(char *input_ptr) {
       continue;
     }
 
-    error("トークナイズできません: '%c'", *input_ptr);
+    error_at(input_ptr, "expected a number");
   }
 
   new_token(TK_EOF, tail, input_ptr);
@@ -108,7 +124,8 @@ int main(int argc, char **argv) {
   }
 
   // 入力をトークナイズ
-  current_token = tokenize(argv[1]);
+  user_input = argv[1];
+  current_token = tokenize();
 
   // アセンブリのヘッダ出力
   printf(".intel_syntax noprefix\n");
