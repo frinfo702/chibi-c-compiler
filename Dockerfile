@@ -19,3 +19,5 @@ RUN adduser --disabled-password --gecos '' user && \
 
 USER user
 WORKDIR /home/user
+RUN mkdir -p /home/user/work
+WORKDIR /home/user/work
