@@ -104,7 +104,6 @@ Token *tokenize(char *input_ptr) {
 int main(int argc, char **argv) {
   if (argc != 2) {
     error("引数の数が正しくありません");
-    return 1;
   }
 
   // 入力をトークナイズ
