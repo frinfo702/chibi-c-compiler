@@ -15,7 +15,14 @@ typedef enum {
 typedef struct Token Token;
 char *user_input; // Input program
 
-// トークンを表す構造体
+/**
+ * Token represents a token in the input program.
+ * Args:
+ *   kind: Type of the token (reserved symbol, number, or EOF)
+ *   next: Pointer to the next token
+ *   val: Value if the token is a number
+ *   str: String representation of the token
+ */
 struct Token {
   TokenKind kind; // トークンの種類
   Token *next;    // 次のトークンへのポインタ
@@ -23,7 +30,15 @@ struct Token {
   char *str;      // トークン文字列へのポインタ
 };
 
-// 新しいトークンを作成して連結
+/**
+ * Creates a new token and links it to the previous token.
+ * Args:
+ *   kind: Type of the token to create
+ *   prev: Previous token to link to
+ *   str: String representation of the token
+ * Returns:
+ *   Pointer to the newly created token
+ */
 Token *new_token(TokenKind kind, Token *prev, char *str) {
   Token *new_tok = calloc(1, sizeof(Token));
   new_tok->kind = kind;
@@ -32,11 +47,72 @@ Token *new_token(TokenKind kind, Token *prev, char *str) {
   return new_tok;
 }
 
+// 抽象構文木のノードの種類
+typedef enum {
+  ND_ADD, // +
+  ND_SUB, // -
+  ND_MUL, // *
+  ND_DIV, // /
+  ND_NUM, // 整数
+} NodeKind;
+
+typedef struct Node Node;
+
+/**
+ * Node represents a node in the Abstract Syntax Tree.
+ * Args:
+ *   kind: Type of the node (operator or number)
+ *   left_hand_side: Left child node
+ *   right_hand_side: Right child node
+ *   value: Value if the node is a number
+ */
+struct Node {
+  NodeKind kind;         // ノードの型
+  Node *left_hand_side;  // 左辺
+  Node *right_hand_side; // 右辺
+  int value;             // kindがND_NUMの場合のみ使用
+};
+
+/**
+ * Creates a new AST node for operators.
+ * Args:
+ *   kind: Type of the node
+ *   left_hand_side: Left child node
+ *   right_hand_side: Right child node
+ * Returns:
+ *   Pointer to the newly created node
+ */
+Node *new_node(NodeKind kind, Node *left_hand_side, Node *right_hand_side) {
+  Node *node = calloc(1, sizeof(Node));
+  node->kind = kind;
+  node->left_hand_side = left_hand_side;
+  node->right_hand_side = right_hand_side;
+  return node;
+}
+
+/**
+ * Creates a new AST node for numbers.
+ * Args:
+ *   value: Integer value for the node
+ * Returns:
+ *   Pointer to the newly created number node
+ */
+Node *new_node_num(int value) {
+  Node *node = calloc(1, sizeof(Node));
+  node->kind = ND_NUM;
+  node->value = value;
+  return node;
+}
+
 // 現在処理中のトークン
 Token *current_token;
 
-// Reports an error and exits the program.
-// Takes the same arguments as printf.
+/**
+ * Reports an error with formatted message and exits.
+ * Args:
+ *   fmt: Format string for the error message
+ *   ...: Variable arguments for formatting
+ */
 void error(char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
@@ -45,7 +121,13 @@ void error(char *fmt, ...) {
   exit(1);
 }
 
-// Reports an error location and exit.
+/**
+ * Reports an error with location information and exits.
+ * Args:
+ *   location: Pointer to the location in source where error occurred
+ *   fmt: Format string for the error message
+ *   ...: Variable arguments for formatting
+ */
 void error_at(char *location, char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
@@ -59,7 +141,13 @@ void error_at(char *location, char *fmt, ...) {
   exit(1);
 }
 
-// 次のトークンが期待する記号ならトークンを進めてtrueを返す
+/**
+ * Consumes the next token if it matches the expected operator.
+ * Args:
+ *   op: Expected operator character
+ * Returns:
+ *   true if token was consumed, false otherwise
+ */
 bool consume(char op) {
   if (current_token->kind != TK_RESERVED || current_token->str[0] != op)
     return false;
@@ -67,15 +155,23 @@ bool consume(char op) {
   return true;
 }
 
-// 次のトークンが期待する記号でなければエラー
-void expect(char op) {
+/**
+ * Ensures next token is the expected symbol and advances.
+ * Args:
+ *   op: Expected operator character
+ */
+void expect_symbol(char op) {
   if (current_token->kind != TK_RESERVED || current_token->str[0] != op)
-    error_at(current_token->str, "expected: '%c'but got: '%s'", op,
+    error_at(current_token->str, "expected: '%c' but got: '%s'", op,
              current_token->str);
   current_token = current_token->next;
 }
 
-// 次のトークンが数値でなければエラー
+/**
+ * Ensures next token is a number and returns its value.
+ * Returns:
+ *   The value of the number token
+ */
 int expect_number() {
   if (current_token->kind != TK_NUM)
     error_at(current_token->str, "expected a number");
@@ -84,10 +180,18 @@ int expect_number() {
   return val;
 }
 
-// トークンが終端かどうか
+/**
+ * Checks if the current token is EOF.
+ * Returns:
+ *   true if current token is EOF, false otherwise
+ */
 bool at_eof() { return current_token->kind == TK_EOF; }
 
-// 入力文字列をトークンに分割
+/**
+ * Tokenizes the input string into a linked list of tokens.
+ * Returns:
+ *   Pointer to the first token in the linked list
+ */
 Token *tokenize() {
   char *input_ptr = user_input;
   Token head;
@@ -142,7 +246,7 @@ int main(int argc, char **argv) {
       continue;
     }
 
-    expect('-');
+    expect_symbol('-');
     printf("  sub rax, %d\n", expect_number());
   }
 
