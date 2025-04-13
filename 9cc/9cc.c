@@ -204,7 +204,7 @@ Token *tokenize() {
       continue;
     }
 
-    if (*input_ptr == '+' || *input_ptr == '-') {
+    if (strchr("+-*/()", *input_ptr)) {
       tail = new_token(TK_RESERVED, tail, input_ptr++);
       continue;
     }
@@ -281,34 +281,60 @@ Node *primary() {
   return new_node_num(expect_number());
 }
 
+void gen(Node *node) {
+  if (node->kind == ND_NUM) {
+    printf("  push %d\n", node->value);
+    return;
+  }
+
+  gen(node->left_hand_side);
+  gen(node->right_hand_side);
+
+  printf("  pop rdi\n");
+  printf("  pop rax\n");
+
+  switch (node->kind) {
+  case ND_ADD:
+    printf("  add rax, rdi\n");
+    break;
+  case ND_SUB:
+    printf("  sub rax, rdi\n");
+    break;
+  case ND_MUL:
+    printf("  imul rax, rdi\n");
+    break;
+  case ND_DIV:
+    printf("  cqo\n");
+    printf("  idiv rdi\n");
+    break;
+  default:
+    error("Unsupported node kind: %d", node->kind);
+  }
+
+  printf("  push rax\n");
+}
+
 int main(int argc, char **argv) {
   if (argc != 2) {
-    error("引数の数が正しくありません");
+    error("%s: invalid number of arguments", argv[0]);
   }
 
   // 入力をトークナイズ
   user_input = argv[1];
   current_token = tokenize();
+  Node *node = expr();
 
   // アセンブリのヘッダ出力
   printf(".intel_syntax noprefix\n");
   printf(".globl main\n");
   printf("main:\n");
 
-  // 最初の数値をRAXに移動
-  printf("  mov rax, %d\n", expect_number());
+  // 抽象構文木を降りながらコード生成
+  gen(node);
 
-  // 式の解析とコード生成
-  while (!at_eof()) {
-    if (consume('+')) {
-      printf("  add rax, %d\n", expect_number());
-      continue;
-    }
-
-    expect_symbol('-');
-    printf("  sub rax, %d\n", expect_number());
-  }
-
+  // stackトップに式全体の値が残っているはずなので
+  // それをRAXにロードして関数からの返り値とする
+  printf("  pop rax\n");
   printf("  ret\n");
   return 0;
 }
