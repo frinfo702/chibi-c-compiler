@@ -32,6 +32,40 @@ Token *new_token(TokenKind kind, Token *prev, char *str) {
   return new_tok;
 }
 
+// 抽象構文木のノードの種類
+typedef enum {
+  ND_ADD, // +
+  ND_SUB, // -
+  ND_MUL, // *
+  ND_DIV, // /
+  ND_NUM, // 整数
+} NodeKind;
+
+typedef struct Node Node;
+
+// 抽象構文木のノードの型
+struct Node {
+  NodeKind kind;         // ノードの型
+  Node *left_hand_side;  // 左辺
+  Node *right_hand_side; // 右辺
+  int value;             // kindがND_NUMの場合のみ使用
+};
+
+Node *new_node(NodeKind kind, Node *left_hand_side, Node *right_hand_side) {
+  Node *node = calloc(1, sizeof(Node));
+  node->kind = kind;
+  node->left_hand_side = left_hand_side;
+  node->right_hand_side = right_hand_side;
+  return node;
+}
+
+Node *new_node_num(int value) {
+  Node *node = calloc(1, sizeof(Node));
+  node->kind = ND_NUM;
+  node->value = value;
+  return node;
+}
+
 // 現在処理中のトークン
 Token *current_token;
 
