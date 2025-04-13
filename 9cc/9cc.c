@@ -307,6 +307,8 @@ void gen(Node *node) {
     printf("  cqo\n");
     printf("  idiv rdi\n");
     break;
+  default:
+    break;
   }
 
   printf("  push rax\n");
@@ -319,7 +321,7 @@ int main(int argc, char **argv) {
 
   // 入力をトークナイズ
   user_input = argv[1];
-  current_token = tokenize(user_input);
+  current_token = tokenize();
   Node *node = expr();
 
   // アセンブリのヘッダ出力
