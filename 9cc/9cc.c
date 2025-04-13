@@ -259,13 +259,19 @@ Node *unary();
 Node *primary();
 
 /**
- * Parses expressions with left-associative operators (+, -).
+ * Parses expressions.
  * Follows the grammar rule: expr = equality
  * Returns:
  *   Pointer to the root node of the parsed expression
  */
 Node *expr() { return equality(); }
 
+/**
+ * Parses equality expressions with left-associative operators (==, !=).
+ * Follows the grammar rule: equality = relational ("==" relational | "!="
+ * relational)* Returns: Pointer to the root node of the parsed equality
+ * expression
+ */
 Node *equality() {
   Node *node = relational();
 
@@ -279,6 +285,12 @@ Node *equality() {
   }
 }
 
+/**
+ * Parses relational expressions with left-associative operators (<, <=, >, >=).
+ * Follows the grammar rule: relational = add ("<" add | "<=" add | ">" add |
+ * ">=" add)* Returns: Pointer to the root node of the parsed relational
+ * expression
+ */
 Node *relational() {
   Node *node = add();
 
@@ -296,6 +308,12 @@ Node *relational() {
   }
 }
 
+/**
+ * Parses additive expressions with left-associative operators (+, -).
+ * Follows the grammar rule: add = mul ("+" mul | "-" mul)*
+ * Returns:
+ *   Pointer to the root node of the parsed additive expression
+ */
 Node *add() {
   Node *node = mul();
 
