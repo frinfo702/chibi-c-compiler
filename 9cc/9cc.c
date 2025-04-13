@@ -281,6 +281,37 @@ Node *primary() {
   return new_node_num(expect_number());
 }
 
+void gen(Node *node) {
+  if (node->kind == ND_NUM) {
+    printf("  push %d\n", node->value);
+    return;
+  }
+
+  gen(node->left_hand_side);
+  gen(node->right_hand_side);
+
+  printf("  pop rdi\n");
+  printf("  pop rax\n");
+
+  switch (node->kind) {
+  case ND_ADD:
+    printf("  add rax, rdi\n");
+    break;
+  case ND_SUB:
+    printf("  sub rax, rdi\n");
+    break;
+  case ND_MUL:
+    printf("  imul rax, rdi\n");
+    break;
+  case ND_DIV:
+    printf("  cqo\n");
+    printf("  idiv rdi\n");
+    break;
+  }
+
+  printf("  push rax\n");
+}
+
 int main(int argc, char **argv) {
   if (argc != 2) {
     error("引数の数が正しくありません");
@@ -288,7 +319,8 @@ int main(int argc, char **argv) {
 
   // 入力をトークナイズ
   user_input = argv[1];
-  current_token = tokenize();
+  current_token = tokenize(user_input);
+  Node *node = expr();
 
   // アセンブリのヘッダ出力
   printf(".intel_syntax noprefix\n");
