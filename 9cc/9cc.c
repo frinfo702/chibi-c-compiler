@@ -162,7 +162,7 @@ bool consume(char op) {
  */
 void expect_symbol(char op) {
   if (current_token->kind != TK_RESERVED || current_token->str[0] != op)
-    error_at(current_token->str, "expected: '%c'but got: '%s'", op,
+    error_at(current_token->str, "expected: '%c' but got: '%s'", op,
              current_token->str);
   current_token = current_token->next;
 }
