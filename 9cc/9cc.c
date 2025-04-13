@@ -308,7 +308,7 @@ void gen(Node *node) {
     printf("  idiv rdi\n");
     break;
   default:
-    break;
+    error("Unsupported node kind: %d", node->kind);
   }
 
   printf("  push rax\n");
