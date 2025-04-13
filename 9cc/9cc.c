@@ -82,7 +82,7 @@ struct Node {
  * Returns:
  *   Pointer to the newly created node
  */
-Node *new_node(NodeKind kind, Node *left_hand_side, Node *right_hand_side) {
+Node *new_binary(NodeKind kind, Node *left_hand_side, Node *right_hand_side) {
   Node *node = calloc(1, sizeof(Node));
   node->kind = kind;
   node->left_hand_side = left_hand_side;
@@ -239,9 +239,9 @@ Node *expr() {
 
   for (;;) {
     if (consume('+'))
-      node = new_node(ND_ADD, node, mul());
+      node = new_binary(ND_ADD, node, mul());
     else if (consume('-'))
-      node = new_node(ND_SUB, node, mul());
+      node = new_binary(ND_SUB, node, mul());
     else
       return node;
   }
@@ -258,9 +258,9 @@ Node *mul() {
 
   for (;;) {
     if (consume('*'))
-      node = new_node(ND_MUL, node, unary());
+      node = new_binary(ND_MUL, node, unary());
     else if (consume('/'))
-      node = new_node(ND_DIV, node, unary());
+      node = new_binary(ND_DIV, node, unary());
     else
       return node;
   }
@@ -276,7 +276,7 @@ Node *unary() {
   if (consume('+'))
     return unary();
   if (consume('-'))
-    return new_node(ND_SUB, new_node_num(0), unary());
+    return new_binary(ND_SUB, new_node_num(0), unary());
   return primary();
 }
 
