@@ -204,7 +204,7 @@ Token *tokenize() {
       continue;
     }
 
-    if (*input_ptr == '+' || *input_ptr == '-') {
+    if (strchr("+-*/()", *input_ptr)) {
       tail = new_token(TK_RESERVED, tail, input_ptr++);
       continue;
     }
@@ -314,7 +314,7 @@ void gen(Node *node) {
 
 int main(int argc, char **argv) {
   if (argc != 2) {
-    error("引数の数が正しくありません");
+    error("%s: invalid number of arguments", argv[0]);
   }
 
   // 入力をトークナイズ
@@ -327,20 +327,12 @@ int main(int argc, char **argv) {
   printf(".globl main\n");
   printf("main:\n");
 
-  // 最初の数値をRAXに移動
-  printf("  mov rax, %d\n", expect_number());
+  // 抽象構文木を降りながらコード生成
+  gen(node);
 
-  // 式の解析とコード生成
-  while (!at_eof()) {
-    if (consume('+')) {
-      printf("  add rax, %d\n", expect_number());
-      continue;
-    }
-
-    expect_symbol('-');
-    printf("  sub rax, %d\n", expect_number());
-  }
-
+  // stackトップに式全体の値が残っているはずなので
+  // それをRAXにロードして関数からの返り値とする
+  printf("  pop rax\n");
   printf("  ret\n");
   return 0;
 }
