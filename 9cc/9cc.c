@@ -222,6 +222,65 @@ Token *tokenize() {
   return head.next;
 }
 
+// 関数プロトタイプ宣言
+Node *expr();
+Node *mul();
+Node *primary();
+
+/**
+ * Parses expressions with left-associative operators (+, -).
+ * Follows the grammar rule: expr = mul ("+" mul | "-" mul)*
+ * Returns:
+ *   Pointer to the root node of the parsed expression
+ */
+Node *expr() {
+  Node *node = mul();
+
+  for (;;) {
+    if (consume('+'))
+      node = new_node(ND_ADD, node, mul());
+    else if (consume('-'))
+      node = new_node(ND_SUB, node, mul());
+    else
+      return node;
+  }
+}
+
+/**
+ * Parses multiplicative expressions with left-associative operators (*, /).
+ * Follows the grammar rule: mul = primary ("*" primary | "/" primary)*
+ * Returns:
+ *   Pointer to the root node of the parsed multiplicative expression
+ */
+Node *mul() {
+  Node *node = primary();
+
+  for (;;) {
+    if (consume('*'))
+      node = new_node(ND_MUL, node, primary());
+    else if (consume('/'))
+      node = new_node(ND_DIV, node, primary());
+    else
+      return node;
+  }
+}
+
+/**
+ * Parses primary expressions (numbers or parenthesized expressions).
+ * Follows the grammar rule: primary = "(" expr ")" | num
+ * Returns:
+ *   Pointer to the root node of the parsed primary expression
+ */
+Node *primary() {
+  if (consume('(')) {
+    Node *node = expr();
+    expect_symbol(')');
+    return node;
+  }
+
+  return new_node_num(expect_number());
+}
+
 int main(int argc, char **argv) {
   if (argc != 2) {
     error("引数の数が正しくありません");
