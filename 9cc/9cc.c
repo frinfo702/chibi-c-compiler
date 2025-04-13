@@ -28,6 +28,7 @@ struct Token {
   Token *next;    // 次のトークンへのポインタ
   int val;        // kindがTK_NUMの場合の数値
   char *str;      // トークン文字列へのポインタ
+  int length;     // トークンの長さ
 };
 
 /**
@@ -39,11 +40,12 @@ struct Token {
  * Returns:
  *   Pointer to the newly created token
  */
-Token *new_token(TokenKind kind, Token *prev, char *str) {
+Token *new_token(TokenKind kind, Token *current_token, char *str, int length) {
   Token *new_tok = calloc(1, sizeof(Token));
   new_tok->kind = kind;
   new_tok->str = str;
-  prev->next = new_tok;
+  new_tok->length = length;
+  current_token->next = new_tok;
   return new_tok;
 }
 
@@ -53,6 +55,10 @@ typedef enum {
   ND_SUB, // -
   ND_MUL, // *
   ND_DIV, // /
+  ND_EQ,  // ==
+  ND_NE,  // !=
+  ND_LT,  // <
+  ND_LE,  // <=
   ND_NUM, // 整数
 } NodeKind;
 
@@ -148,21 +154,27 @@ void error_at(char *location, char *fmt, ...) {
  * Returns:
  *   true if token was consumed, false otherwise
  */
-bool consume(char op) {
-  if (current_token->kind != TK_RESERVED || current_token->str[0] != op)
+bool consume(char *op) {
+  if (current_token->kind != TK_RESERVED ||
+      strlen(op) !=
+          current_token
+              ->length || // 先にチェックしないと">="を">"と"="に認識する可能性あり
+      memcmp(current_token->str, op, current_token->length))
     return false;
   current_token = current_token->next;
   return true;
 }
 
 /**
- * Ensures next token is the expected symbol and advances.
+ * Ensures current token is the expected symbol and advances.
  * Args:
  *   op: Expected operator character
  */
-void expect_symbol(char op) {
-  if (current_token->kind != TK_RESERVED || current_token->str[0] != op)
-    error_at(current_token->str, "expected: '%c' but got: '%s'", op,
+void expect_symbol(char *op) {
+  if (current_token->kind != TK_RESERVED ||
+      strlen(op) != current_token->length ||
+      memcmp(current_token->str, op, current_token->length))
+    error_at(current_token->str, "expected: \"%s\" but got: \"%s\"", op,
              current_token->str);
   current_token = current_token->next;
 }
@@ -187,6 +199,10 @@ int expect_number() {
  */
 bool at_eof() { return current_token->kind == TK_EOF; }
 
+bool startswith(char *target_str, char *prefix) {
+  return memcmp(target_str, prefix, strlen(prefix)) == 0;
+}
+
 /**
  * Tokenizes the input string into a linked list of tokens.
  * Returns:
@@ -204,43 +220,89 @@ Token *tokenize() {
       continue;
     }
 
-    if (strchr("+-*/()", *input_ptr)) {
-      tail = new_token(TK_RESERVED, tail, input_ptr++);
+    if (startswith(input_ptr, "==") || startswith(input_ptr, "!=") ||
+        startswith(input_ptr, "<=") || startswith(input_ptr, ">=")) {
+      tail = new_token(TK_RESERVED, tail, input_ptr, 2);
+      input_ptr += 2;
+      continue;
+    }
+
+    // 1文字の演算子を処理
+    if (strchr("+-*/()<>", *input_ptr)) {
+      tail = new_token(TK_RESERVED, tail, input_ptr, 1);
+      input_ptr++;
       continue;
     }
 
     if (isdigit(*input_ptr)) {
-      tail = new_token(TK_NUM, tail, input_ptr);
+      tail = new_token(TK_NUM, tail, input_ptr, 0);
+      char *token_start = input_ptr;
       tail->val = strtol(input_ptr, &input_ptr, 10);
+      tail->length = input_ptr - token_start;
       continue;
     }
 
     error_at(input_ptr, "unexpected character");
   }
 
-  new_token(TK_EOF, tail, input_ptr);
+  new_token(TK_EOF, tail, input_ptr, 0);
   return head.next;
 }
 
 // 関数プロトタイプ宣言
 Node *expr();
+Node *equality();
+Node *relational();
+Node *add();
 Node *mul();
 Node *unary();
 Node *primary();
 
 /**
  * Parses expressions with left-associative operators (+, -).
- * Follows the grammar rule: expr = mul ("+" mul | "-" mul)*
+ * Follows the grammar rule: expr = equality
  * Returns:
  *   Pointer to the root node of the parsed expression
  */
-Node *expr() {
+Node *expr() { return equality(); }
+
+Node *equality() {
+  Node *node = relational();
+
+  for (;;) {
+    if (consume("=="))
+      node = new_node(ND_EQ, node, relational());
+    else if (consume("!="))
+      node = new_node(ND_NE, node, relational());
+    else
+      return node;
+  }
+}
+
+Node *relational() {
+  Node *node = add();
+
+  for (;;) {
+    if (consume("<"))
+      node = new_node(ND_LT, node, add());
+    else if (consume("<="))
+      node = new_node(ND_LE, node, add());
+    else if (consume(">"))
+      node = new_node(ND_LT, add(), node);
+    else if (consume(">="))
+      node = new_node(ND_LE, add(), node);
+    else
+      return node;
+  }
+}
+
+Node *add() {
   Node *node = mul();
 
   for (;;) {
-    if (consume('+'))
+    if (consume("+"))
       node = new_node(ND_ADD, node, mul());
-    else if (consume('-'))
+    else if (consume("-"))
       node = new_node(ND_SUB, node, mul());
     else
       return node;
@@ -257,9 +319,9 @@ Node *mul() {
   Node *node = unary();
 
   for (;;) {
-    if (consume('*'))
+    if (consume("*"))
       node = new_node(ND_MUL, node, unary());
-    else if (consume('/'))
+    else if (consume("/"))
       node = new_node(ND_DIV, node, unary());
     else
       return node;
@@ -273,9 +335,9 @@ Node *mul() {
  *   Pointer to the root node of the parsed unary expression
  */
 Node *unary() {
-  if (consume('+'))
+  if (consume("+"))
     return unary();
-  if (consume('-'))
+  if (consume("-"))
     return new_node(ND_SUB, new_node_num(0), unary());
   return primary();
 }
@@ -287,9 +349,9 @@ Node *unary() {
  *   Pointer to the root node of the parsed primary expression
  */
 Node *primary() {
-  if (consume('(')) {
+  if (consume("(")) {
     Node *node = expr();
-    expect_symbol(')');
+    expect_symbol(")");
     return node;
   }
 
@@ -321,6 +383,26 @@ void gen(Node *node) {
   case ND_DIV:
     printf("  cqo\n");
     printf("  idiv rdi\n");
+    break;
+  case ND_EQ:
+    printf("  cmp rax, rdi\n");
+    printf("  sete al\n");
+    printf("  movzb rax, al\n");
+    break;
+  case ND_NE:
+    printf("  cmp rax, rdi\n");
+    printf("  setne al\n");
+    printf("  movzb rax, al\n");
+    break;
+  case ND_LT:
+    printf("  cmp rax, rdi\n");
+    printf("  setl al\n");
+    printf("  movzb rax, al\n");
+    break;
+  case ND_LE:
+    printf("  cmp rax, rdi\n");
+    printf("  setle al\n");
+    printf("  movzb rax, al\n");
     break;
   default:
     error("Unsupported node kind: %d", node->kind);
