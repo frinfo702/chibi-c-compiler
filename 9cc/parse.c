@@ -1,3 +1,4 @@
+#include "9cc.h"
 #include <ctype.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -5,79 +6,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-// トークンの種類を表す列挙型
-typedef enum {
-  TK_RESERVED, // 記号
-  TK_NUM,      // 整数トークン
-  TK_EOF,      // 入力の終わりを表すトークン
-} TokenKind;
-
-typedef struct Token Token;
-char *user_input; // Input program
-
-/**
- * Token represents a token in the input program.
- * Args:
- *   kind: Type of the token (reserved symbol, number, or EOF)
- *   next: Pointer to the next token
- *   val: Value if the token is a number
- *   str: String representation of the token
- */
-struct Token {
-  TokenKind kind; // トークンの種類
-  Token *next;    // 次のトークンへのポインタ
-  int val;        // kindがTK_NUMの場合の数値
-  char *str;      // トークン文字列へのポインタ
-  int length;     // トークンの長さ
-};
-
-/**
- * Creates a new token and links it to the previous token.
- * Args:
- *   kind: Type of the token to create
- *   prev: Previous token to link to
- *   str: String representation of the token
- * Returns:
- *   Pointer to the newly created token
- */
-Token *new_token(TokenKind kind, Token *current_token, char *str, int length) {
-  Token *new_tok = calloc(1, sizeof(Token));
-  new_tok->kind = kind;
-  new_tok->str = str;
-  new_tok->length = length;
-  current_token->next = new_tok;
-  return new_tok;
-}
-
-// 抽象構文木のノードの種類
-typedef enum {
-  ND_ADD, // +
-  ND_SUB, // -
-  ND_MUL, // *
-  ND_DIV, // /
-  ND_EQ,  // ==
-  ND_NE,  // !=
-  ND_LT,  // <
-  ND_LE,  // <=
-  ND_NUM, // 整数
-} NodeKind;
-
-typedef struct Node Node;
-
-/**
- * Node represents a node in the Abstract Syntax Tree.
- * Args:
- *   kind: Type of the node (operator or number)
- *   left_hand_side: Left child node
- *   right_hand_side: Right child node
- *   value: Value if the node is a number
- */
-struct Node {
-  NodeKind kind;         // ノードの型
-  Node *left_hand_side;  // 左辺
-  Node *right_hand_side; // 右辺
-  int value;             // kindがND_NUMの場合のみ使用
-};
+// global environment variable
+char *user_input;
+Token *current_token;
 
 /**
  * Creates a new AST node for operators.
@@ -110,8 +41,23 @@ Node *new_node_num(int value) {
   return node;
 }
 
-// 現在処理中のトークン
-Token *current_token;
+/**
+ * Creates a new token and links it to the previous token.
+ * Args:
+ *   kind: Type of the token to create
+ *   prev: Previous token to link to
+ *   str: String representation of the token
+ * Returns:
+ *   Pointer to the newly created token
+ */
+Token *new_token(TokenKind kind, Token *prev_token, char *str, int length) {
+  Token *new_tok = calloc(1, sizeof(Token));
+  new_tok->kind = kind;
+  new_tok->str = str;
+  new_tok->length = length;
+  prev_token->next = new_tok;
+  return new_tok;
+}
 
 /**
  * Reports an error with formatted message and exits.
@@ -249,15 +195,6 @@ Token *tokenize() {
   return head.next;
 }
 
-// 関数プロトタイプ宣言
-Node *expr();
-Node *equality();
-Node *relational();
-Node *add();
-Node *mul();
-Node *unary();
-Node *primary();
-
 /**
  * Parses expressions.
  * Follows the grammar rule: expr = equality
@@ -374,82 +311,4 @@ Node *primary() {
   }
 
   return new_node_num(expect_number());
-}
-
-void gen(Node *node) {
-  if (node->kind == ND_NUM) {
-    printf("  push %d\n", node->value);
-    return;
-  }
-
-  gen(node->left_hand_side);
-  gen(node->right_hand_side);
-
-  printf("  pop rdi\n");
-  printf("  pop rax\n");
-
-  switch (node->kind) {
-  case ND_ADD:
-    printf("  add rax, rdi\n");
-    break;
-  case ND_SUB:
-    printf("  sub rax, rdi\n");
-    break;
-  case ND_MUL:
-    printf("  imul rax, rdi\n");
-    break;
-  case ND_DIV:
-    printf("  cqo\n");
-    printf("  idiv rdi\n");
-    break;
-  case ND_EQ:
-    printf("  cmp rax, rdi\n");
-    printf("  sete al\n");
-    printf("  movzb rax, al\n");
-    break;
-  case ND_NE:
-    printf("  cmp rax, rdi\n");
-    printf("  setne al\n");
-    printf("  movzb rax, al\n");
-    break;
-  case ND_LT:
-    printf("  cmp rax, rdi\n");
-    printf("  setl al\n");
-    printf("  movzb rax, al\n");
-    break;
-  case ND_LE:
-    printf("  cmp rax, rdi\n");
-    printf("  setle al\n");
-    printf("  movzb rax, al\n");
-    break;
-  default:
-    error("Unsupported node kind: %d", node->kind);
-  }
-
-  printf("  push rax\n");
-}
-
-int main(int argc, char **argv) {
-  if (argc != 2) {
-    error("%s: invalid number of arguments", argv[0]);
-  }
-
-  // 入力をトークナイズ
-  user_input = argv[1];
-  current_token = tokenize();
-  Node *node = expr();
-
-  // アセンブリのヘッダ出力
-  printf(".intel_syntax noprefix\n");
-  printf(".globl main\n");
-  printf("main:\n");
-
-  // 抽象構文木を降りながらコード生成
-  gen(node);
-
-  // stackトップに式全体の値が残っているはずなので
-  // それをRAXにロードして関数からの返り値とする
-  printf("  pop rax\n");
-  printf("  ret\n");
-  return 0;
 }

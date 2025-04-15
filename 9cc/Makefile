@@ -1,7 +1,12 @@
-CFLAGS=-std=c11 -g -static
+CFLAGS=-std=c11 -g
+LDFLAGS=-static
+SRCS=$(wildcard *.c)
+OBJS=$(SRCS:.c=.o)
 
-9cc: 9cc.c
-	$(CC) $(CFLAGS) -o $@ $<
+9cc: $(OBJS)
+	$(CC) -o 9cc $(OBJS) $(LDFLAGS)
+
+$(OBJS): 9cc.h
 
 test: 9cc
 	./test.sh
@@ -9,4 +14,4 @@ test: 9cc
 clean:
 	rm -f 9cc *.o *~ tmp* tmp.s
 
-.PHONY: test clean run
+.PHONY: test clean
