@@ -50,12 +50,12 @@ Node *new_node_num(int value) {
  * Returns:
  *   Pointer to the newly created token
  */
-Token *new_token(TokenKind kind, Token *current_token, char *str, int length) {
+Token *new_token(TokenKind kind, Token *prev_token, char *str, int length) {
   Token *new_tok = calloc(1, sizeof(Token));
   new_tok->kind = kind;
   new_tok->str = str;
   new_tok->length = length;
-  current_token->next = new_tok;
+  prev_token->next = new_tok;
   return new_tok;
 }
 
